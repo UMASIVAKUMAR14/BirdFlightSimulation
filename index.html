@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Bird Flight Simulation</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.19.1/dist/lil-gui.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.3.0/math.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quaternion@1.5.1/quaternion.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/numeric@1.2.6/numeric-1.2.6.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+              "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+              "three/": "https://unpkg.com/three@0.160.0/"
+            }
+        }
+    </script>
+</head>
+<body>
+<script type="module">
+    import {ThreeEngine, get_default_lil_gui, refresh_displays} from "./js/utils/utils_three.js";
+    import {Birdbot, get_xyz_rpy_SE3_matrix} from "./js/utils/utils_robot.js";
+    import {mul_matrix_matrix, identity_matrix} from "./js/utils/utils_math.js";
+
+    let engine = ThreeEngine.new_default_3d();
+
+    let robot = new Birdbot();
+    robot.spawn_robot(engine);
+
+    let links = robot.get_robot_links();
+    let joints = robot.get_robot_joints();
+
+
+
+
+    // HELPERSSSS
+    function to_vec3(v) {
+        if (!Array.isArray(v)) {
+            return [0, 0, 0];
+        }
+        if (Array.isArray(v[0])) {
+            return [v[0][0], v[1][0], v[2][0]];
+        }
+        return [v[0], v[1], v[2]];
+    }
+
+    
+    function axis_angle_to_so3(axis, angle) {
+        let v = to_vec3(axis);
+        let n = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        if (n < 1e-12) { 
+            return identity_matrix(3);
+        }
+
+        let x = v[0] / n;
+        let y = v[1] / n;
+        let z = v[2] / n;
+        let c = Math.cos(angle);
+        let s = Math.sin(angle);
+        let one_minus_c = 1.0 - c;
+
+        return [
+            [c + x * x * one_minus_c, x * y * one_minus_c - z * s, x * z * one_minus_c + y * s],
+            [y * x * one_minus_c + z * s, c + y * y * one_minus_c, y * z * one_minus_c - x * s],
+            [z * x * one_minus_c - y * s, z * y * one_minus_c + x * s, c + z * z * one_minus_c]
+        ];
+    }
+
+    function get_joint_motion(joint, input) {
+        if (joint.joint_type_string === 'revolute') {
+            let r = axis_angle_to_so3(joint.axis, input);
+            return [
+            [r[0][0], r[0][1], r[0][2], 0],
+            [r[1][0], r[1][1], r[1][2], 0],
+            [r[2][0], r[2][1], r[2][2], 0],
+            [0, 0, 0, 1]];
+        }
+
+        if (joint.joint_type_string === 'prismatic') {
+            let a = to_vec3(joint.axis);
+            return [
+            [1, 0, 0, a[0] * input],
+            [0, 1, 0, a[1] * input],
+            [0, 0, 1, a[2] * input],
+            [0, 0, 0, 1]];
+        }
+
+        return identity_matrix(4);
+    }
+
+
+
+
+    engine.animation_loop( ()  => {
+
+        let kinematic_hierarchy = robot.get_robot_kinematic_hierarchy(); 
+
+        let link_poses = {};
+        for (let layer of kinematic_hierarchy) {
+            for (let link_idx of layer) {
+                let link = links[link_idx];
+
+                if (link.parent_joint_idx === null) {
+                    link_poses[link_idx] = identity_matrix(4);
+                } else {
+                    let parent_pose = link_poses[link.parent_link_idx] || identity_matrix(4);
+                    let parent_joint = joints[link.parent_joint_idx];
+                    // let input = joint_settings[parent_joint.joint_idx] || 0.0;
+
+                    let joint_origin = get_xyz_rpy_SE3_matrix(parent_joint.xyz, parent_joint.rpy);
+                    // let joint_motion = get_joint_motion(parent_joint, input);
+                    // link_poses[link_idx] = mul_matrix_matrix(parent_pose, mul_matrix_matrix(joint_origin, joint_motion));
+                    link_poses[link_idx] = mul_matrix_matrix(parent_pose, joint_origin);
+                }
+
+                robot.set_link_mesh_pose_from_SE3_matrix(engine, link_idx, link_poses[link_idx]);
+            }
+        }
+        
+    });
+
+</script>
+</body>
+</html>

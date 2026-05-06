@@ -29,7 +29,7 @@ function get_rpy_wxyz_quaternion(rpy) {
     return mul_wxyz_quaternions(mul_wxyz_quaternions(rx, ry), rz);
 }
 
-function get_xyz_rpy_SE3_matrix(xyz, rpy) {
+export function get_xyz_rpy_SE3_matrix(xyz, rpy) {
     let s = get_rpy_SO3_matrix(rpy);
 
     return [
@@ -653,5 +653,50 @@ export class B1Z1Robot extends RobotBaseClass {
     get_robot_kinematic_hierarchy() {
         // return [[0], [1], [2, 3, 4, 10, 11, 17, 18, 24, 25], [5, 6, 12, 13, 19, 20, 26, 27], [7, 8, 14, 15, 21, 22, 28, 29], [9, 16, 23, 30], [31], [32], [33], [34], [35], [36], [37], [38], [39], [40]];
         return [[0], [1], [2, 3, 4, 10, 11, 17, 18, 24, 25, 31], [5, 6, 12, 13, 19, 20, 26, 27, 32], [7, 8, 14, 15, 21, 22, 28, 29, 33], [9, 16, 23, 30, 34], [35], [36], [37], [38], [39], [40]];
+    }
+}
+
+export class Birdbot extends RobotBaseClass {
+    constructor() {
+        super();
+    }
+
+    async spawn_robot(engine) {
+        await super.spawn_robot(engine);
+
+        let bird_link_idxs = this.link_to_mesh_idxs_mapping[1] || [];
+        bird_link_idxs.forEach(idx => {
+            if (engine.mesh_objects[idx]) {
+                engine.mesh_objects[idx].scale.set(0.075, 0.075, 0.075);
+            }
+            if (engine.mesh_object_wireframes[idx]) {
+                engine.mesh_object_wireframes[idx].scale.set(0.075, 0.075, 0.075);
+            }
+        });
+    }
+
+    get_robot_links_mesh_directory_name() {
+        return 'bird_meshes';
+    }
+
+    get_robot_name() {
+        return 'Birdbot';
+    }
+
+    get_robot_joints() {
+        let joint1 = new RobotJointFixed('base_static_joint', 0, 0, 1, [0,0,0], [0, Math.PI, 0]);
+
+        return [joint1];
+    }
+
+    get_robot_links() {
+        let link0 = new RobotLink('world', 0, null, [0], null, [1]);
+        let link1 = new RobotLink('bird', 1, 0, [], 0, [], 'onebird.glb');
+
+        return [link0, link1];
+    }
+
+    get_robot_kinematic_hierarchy() {
+        return [[0], [1]];
     }
 }
