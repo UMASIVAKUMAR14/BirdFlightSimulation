@@ -10,6 +10,7 @@ import {STLLoader} from 'three/examples/jsm/loaders/STLLoader.js';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {ParametricGeometry} from 'three/examples/jsm/geometries/ParametricGeometry.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 import {
     add_matrix_matrix,
@@ -83,9 +84,9 @@ export class ThreeEngine {
         // ambientLight.castShadow = true;
         scene.add(ambientLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 70, 1000); // color, intensity, distance
+        const pointLight = new THREE.PointLight(0xffffff, 150, 1000); // color, intensity, distance
         // pointLight.position.set(1, 5, 0); // position the light
-        z_up_set_object_position(pointLight, 1, 0, 5);
+        z_up_set_object_position(pointLight, 1, 0, 10);
         pointLight.castShadow = true;
         // pointLight.shadow.mapSize.width = 2048;
         // pointLight.shadow.mapSize.height = 2048;
@@ -101,13 +102,29 @@ export class ThreeEngine {
 
         const pointLight3 = new THREE.PointLight(0xffffff, 100, 1000); // color, intensity, distance
         // pointLight2.position.set(-2, 3, 1); // position the light
-        z_up_set_object_position(pointLight2, 2, -1, -3);
+        z_up_set_object_position(pointLight3, 2, -1, -3);
         pointLight2.castShadow = true;
         // pointLight2.shadow.mapSize.width = 2048;
         // pointLight2.shadow.mapSize.height = 2048;
         // scene.add(pointLight3);
 
         scene.background = new THREE.Color(0xF3F3FE);
+
+        const sky = new Sky();
+        sky.scale.setScalar( 500 );
+        scene.add( sky );
+
+        const sun = new THREE.Vector3();
+        const skyuniforms = sky.material.uniforms;
+        skyuniforms[ 'turbidity' ].value = 2;
+        skyuniforms[ 'rayleigh' ].value = 3;
+        skyuniforms[ 'mieCoefficient' ].value = 0.005;
+        skyuniforms[ 'mieDirectionalG' ].value = 0.8;
+
+        // Position the sun
+        sun.setFromSphericalCoords(1, Math.PI / 2, 0); // Elevation and Azimuth
+        skyuniforms[ 'sunPosition' ].value.copy(sun);
+
 
         // const floorGeometry = new THREE.PlaneGeometry(20, 20); // 10x10 size
         // const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
