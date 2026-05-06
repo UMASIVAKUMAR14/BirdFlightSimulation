@@ -22,12 +22,12 @@
 <script type="module">
     import * as THREE from "three";
     import {ThreeEngine, get_default_lil_gui, refresh_displays} from "./js/utils/utils_three.js";
-    import {Birdbot, get_xyz_rpy_SE3_matrix} from "./js/utils/utils_robot.js";
+    import {Birdbot, FlappingBirdbot, DynamicBirdbot, get_xyz_rpy_SE3_matrix} from "./js/utils/utils_robot.js";
     import {add_matrix_matrix, sub_matrix_matrix, mul_matrix_matrix, mul_matrix_scalar, identity_matrix, transpose, frobenius_norm_matrix, matrix_inverse_3x3} from "./js/utils/utils_math.js";
 
     let engine = ThreeEngine.new_default_3d();
 
-    let robot = new Birdbot();
+    let robot = new FlappingBirdbot();
     robot.spawn_robot(engine);
 
     let links = robot.get_robot_links();
@@ -38,19 +38,20 @@
         playback_speed: 0.1,
         play: true,
         corner_roundness: 1.0,
-        p1_x: -5.0,
+        flapping_speed: 1.0,
+        p1_x: -5.0, 
         p1_y: 0.0,
         p1_z: 0.0,
         p2_x: 0.0,
-        p2_y: -5.0,
+        p2_y: -5.0, 
         p2_z: 0.0,
         p3_x: 0.0,
         p3_y: 0.0,
-        p3_z: 3.0,
-        p4_x: 5.0,
+        p3_z: 3.0, 
+        p4_x: 5.0, 
         p4_y: 0.0,
         p4_z: 0.0,
-        spline: true
+        spline: false
     }
 
     let joint_settings = {};
@@ -77,6 +78,7 @@
     gui.add(settings, 'corner_roundness', 0.01, 1.5);
     gui.add(actions, 'play');
     gui.add(actions, 'pause');
+    gui.add(settings, 'flapping_speed', 0.1, 5.0);
     gui.add(settings, 'spline').name('show spline');
 
     let controlpoint_folder = gui.addFolder('Control Points');
@@ -215,10 +217,16 @@
         
     }
 
+    let flap_phase = 0.0;
+    let last_flap_time = performance.now();
 
 
 
     engine.animation_loop( ()  => {
+        let now = performance.now();
+        let dt = Math.max(0.0, (now - last_flap_time) / 1000.0);
+        last_flap_time = now;
+        flap_phase += dt * 2.0 * Math.PI * settings.flapping_speed;
 
         let curve = build_catmull_rom_curve();
 
@@ -298,6 +306,10 @@
         joint_settings[`${joints[0].joint_idx}_3`] = xyz_local[0];
         joint_settings[`${joints[0].joint_idx}_4`] = xyz_local[1];
         joint_settings[`${joints[0].joint_idx}_5`] = xyz_local[2];
+
+        joint_settings[`${joints[1].joint_idx}_0`] = Math.sin(flap_phase) * Math.PI / 6.0;
+        joint_settings[`${joints[2].joint_idx}_0`] = Math.sin(flap_phase) * Math.PI / 6.0;
+
     });
 
 </script>

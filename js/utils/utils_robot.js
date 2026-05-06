@@ -700,3 +700,133 @@ export class Birdbot extends RobotBaseClass {
         return [[0], [1]];
     }
 }
+
+
+export class FlappingBirdbot extends RobotBaseClass {
+    constructor() {
+        super();
+
+        // For some reason, the bird body downscales at a different factor than the wings
+        this.model_scale = 0.075;
+        this.visual_scale_applied = false;
+
+    }
+
+    async spawn_robot(engine) {
+        await super.spawn_robot(engine);
+
+        if (this.visual_scale_applied) { return; }
+
+        this.links.forEach(link => {
+            if (link.mesh_name === '') { return; }
+
+            let link_mesh_idxs = this.link_to_mesh_idxs_mapping[link.link_idx] || [];
+            link_mesh_idxs.forEach(idx => {
+                if (engine.mesh_objects[idx]) {
+                    let sx = Math.sign(engine.mesh_objects[idx].scale.x) || 1;
+                    let sy = Math.sign(engine.mesh_objects[idx].scale.y) || 1;
+                    let sz = Math.sign(engine.mesh_objects[idx].scale.z) || 1;
+                    engine.mesh_objects[idx].scale.set(
+                        sx * this.model_scale,
+                        sy * this.model_scale,
+                        sz * this.model_scale
+                    );
+                }
+            });
+        });
+
+        this.visual_scale_applied = true;
+    }
+
+    get_robot_links_mesh_directory_name() {
+        return 'bird_meshes';
+    }
+
+    get_robot_name() {
+        return 'FlappingBirdbot';
+    }
+
+    get_robot_joints() {
+        let joint0 = new RobotJointFloating('floating_base', 0, 0, 1, [0,1,2], [3,4,5], [0,0,0], [0, Math.PI,0]);
+        let joint1 = new RobotJointRevolute('right_wing_base_joint', 1, 1, 2, 6, [0,0,1], -Math.PI/4, Math.PI/4, [-0.2, -0.6, 0], [-Math.PI/2,0,0]);
+        let joint2 = new RobotJointRevolute('left_wing_base_joint', 2, 1, 3, 7, [0,0,1], -Math.PI/4, Math.PI/4, [0.2, -0.6, 0], [Math.PI/2,0,0]);
+
+        return [joint0, joint1, joint2];
+    }
+
+    get_robot_links() {
+        let link0 = new RobotLink('world', 0, null, [0], null, [1]);
+        let link1 = new RobotLink('bird', 1, 0, [], 0, [], 'body.glb');
+        let link2 = new RobotLink('rightWing', 2, 1, [], 1, [], 'rightWing.glb');
+        let link3 = new RobotLink('leftWing', 3, 2, [], 1, [], 'leftWing.glb');
+
+        return [link0, link1, link2, link3];
+    }
+
+    get_robot_kinematic_hierarchy() {
+        return [[0], [1], [2], [3]];
+    }
+}
+
+
+export class DynamicBirdbot extends RobotBaseClass {
+    constructor() {
+        super();
+    }
+
+    async spawn_robot(engine) {
+        await super.spawn_robot(engine);
+
+        [1, 2, 3, 4, 5, 6, 7].forEach(link_idx => {
+            let link_mesh_idxs = this.link_to_mesh_idxs_mapping[link_idx] || [];
+            link_mesh_idxs.forEach(idx => {
+                if (engine.mesh_objects[idx]) {
+                    engine.mesh_objects[idx].scale.set(0.075, 0.075, 0.075);
+                }
+                if (engine.mesh_object_wireframes[idx]) {
+                    engine.mesh_object_wireframes[idx].scale.set(0.075, 0.075, 0.075);
+                }
+            });
+        });
+    }
+
+    get_robot_links_mesh_directory_name() {
+        return 'bird_meshes';
+    }
+
+    get_robot_name() {
+        return 'DynamicBirdbot';
+    }
+
+    // revolute constructor: joint_name, joint_idx, parent_link_idx, child_link_idx, dof_idx, axis, lower_bound, upper_bound, xyz=[0,0,0], rpy=[0,0,0]
+    get_robot_joints() {
+        let joint0 = new RobotJointFloating('floating_base', 0, 0, 1, [0,1,2], [3,4,5], [0,0,0], [0, Math.PI,0]);
+        let joint1 = new RobotJointRevolute('right_wing_base_joint', 1, 1, 2, 6, [0,0,1], -Math.PI/4, Math.PI/4, [-1, -1, 0], [-Math.PI/2,-Math.PI/2,0]);
+        let joint2 = new RobotJointRevolute('right_wing_mid_joint', 2, 2, 3, 7, [0,0,1], -Math.PI/4, Math.PI/4, [0, 0, 0], [-Math.PI/2,-Math.PI/2,0]);
+        let joint3 = new RobotJointRevolute('right_wing_tip_joint', 3, 3, 4, 8, [0,0,1], -Math.PI/4, Math.PI/4, [0, 0, 0], [-Math.PI/2,-Math.PI/2,0]);
+        let joint4 = new RobotJointRevolute('left_wing_base_joint', 4, 1, 5, 9, [0,0,1], -Math.PI/4, Math.PI/4, [1, -1, 0], [-Math.PI/2,-Math.PI/2,0]);
+        let joint5 = new RobotJointRevolute('left_wing_mid_joint', 5, 5, 6, 10, [0,0,1], -Math.PI/4, Math.PI/4, [1, -1, 0], [-Math.PI/2,-Math.PI/2,0]);
+        let joint6 = new RobotJointRevolute('left_wing_tip_joint', 6, 6, 7, 11, [0,0,1], -Math.PI/4, Math.PI/4, [1, -1, 0], [-Math.PI/2,-Math.PI/2,0]);
+
+        return [joint0, joint1, joint2, joint3, joint4, joint5, joint6];
+    }
+
+    // link constructor: link_name, link_idx, parent_joint_idx, children_joint_idxs, parent_link_idx, children_link_idxs, mesh_name=''
+    get_robot_links() {
+        let link0 = new RobotLink('world', 0, null, [0], null, [1]);
+        let link1 = new RobotLink('bird', 1, 0, [], 0, [], 'body.glb');
+        let link2 = new RobotLink('rightWingBase', 2, 1, [2], 1, [], 'rightWingBase.glb');
+        let link3 = new RobotLink('rightWingMid', 3, 2, [3], 2, [], 'rightWingMid.glb');
+        let link4 = new RobotLink('rightWingTip', 4, 3, [], 3, [], 'rightWingTip.glb');
+        let link5 = new RobotLink('leftWingBase', 5, 1, [5], 1, [], 'leftWingBase.glb');
+        let link6 = new RobotLink('leftWingMid', 6, 5, [6], 6, [], 'leftWingMid.glb');
+        let link7 = new RobotLink('leftWingTip', 7, 6, [], 7, [], 'leftWingTip.glb');
+
+        return [link0, link1, link2, link3, link4, link5, link6, link7];
+    }
+
+    get_robot_kinematic_hierarchy() {
+        return [[0], [1], [2], [3], [4], [5], [6], [7]];
+    }
+}
+
