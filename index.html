@@ -32,10 +32,60 @@
     let links = robot.get_robot_links();
     let joints = robot.get_robot_joints();
 
+    let settings = {
+        t: 0.0,
+        playback_speed: 1.0,
+        play: true,
+        p1_x: 0.0,
+        p1_y: 0.0,
+        p1_z: 0.0,
+        p2_x: 0.0,
+        p2_y: 0.0,
+        p2_z: 0.0,
+        p3_x: 0.0,
+        p3_y: 0.0,
+        p3_z: 0.0,
+    }
+
+    let joint_settings = {};
+    for (let joint of joints) {
+        for (let dof_idx = 0; dof_idx < joint.get_joint_num_dofs(); dof_idx++) {
+            joint_settings[`${joint.joint_idx}_${dof_idx}`] = 0.0;
+        }
+    }
+
+    let actions = {
+        play: function() {
+            settings.play = true;
+            refresh_displays();
+        },
+        pause: function() {
+            settings.play = false;
+            refresh_displays();
+        },
+    }
+
+    let gui = get_default_lil_gui();
+    gui.add(settings, 't', 0.0, 1.0);
+    gui.add(settings, 'playback_speed', 0.1, 5.0);
+    gui.add(actions, 'play');
+    gui.add(actions, 'pause');
+
+    let controlpoint_folder = gui.addFolder('Control Points');
+    controlpoint_folder.add(settings, 'p1_x', -10.0, 10.0).name('P1 X');
+    controlpoint_folder.add(settings, 'p1_y', -10.0, 10.0).name('P1 Y');
+    controlpoint_folder.add(settings, 'p1_z', -10.0, 10.0).name('P1 Z');
+
+    controlpoint_folder.add(settings, 'p2_x', -10.0, 10.0).name('P2 X');
+    controlpoint_folder.add(settings, 'p2_y', -10.0, 10.0).name('P2 Y');
+    controlpoint_folder.add(settings, 'p2_z', -10.0, 10.0).name('P2 Z');
+
+    controlpoint_folder.add(settings, 'p3_x', -10.0, 10.0).name('P3 X');
+    controlpoint_folder.add(settings, 'p3_y', -10.0, 10.0).name('P3 Y');
+    controlpoint_folder.add(settings, 'p3_z', -10.0, 10.0).name('P3 Z');
 
 
-
-    // HELPERSSSS
+    // HELPERS
     function to_vec3(v) {
         if (!Array.isArray(v)) {
             return [0, 0, 0];
@@ -95,6 +145,10 @@
 
     engine.animation_loop( ()  => {
 
+        engine.draw_debug_sphere([settings.p1_x, settings.p1_y, settings.p1_z], 0.1, 0x00ffff);
+        engine.draw_debug_sphere([settings.p2_x, settings.p2_y, settings.p2_z], 0.1, 0xff00ff);
+        engine.draw_debug_sphere([settings.p3_x, settings.p3_y, settings.p3_z], 0.1, 0xffff00);
+
         let kinematic_hierarchy = robot.get_robot_kinematic_hierarchy(); 
 
         let link_poses = {};
@@ -107,18 +161,42 @@
                 } else {
                     let parent_pose = link_poses[link.parent_link_idx] || identity_matrix(4);
                     let parent_joint = joints[link.parent_joint_idx];
-                    // let input = joint_settings[parent_joint.joint_idx] || 0.0;
 
-                    let joint_origin = get_xyz_rpy_SE3_matrix(parent_joint.xyz, parent_joint.rpy);
-                    // let joint_motion = get_joint_motion(parent_joint, input);
-                    // link_poses[link_idx] = mul_matrix_matrix(parent_pose, mul_matrix_matrix(joint_origin, joint_motion));
-                    link_poses[link_idx] = mul_matrix_matrix(parent_pose, joint_origin);
+                    if (parent_joint.joint_type_string === 'floating') {
+                        let input = [
+                            joint_settings[`${parent_joint.joint_idx}_0`] || 0.0,
+                            joint_settings[`${parent_joint.joint_idx}_1`] || 0.0,
+                            joint_settings[`${parent_joint.joint_idx}_2`] || 0.0,
+                            joint_settings[`${parent_joint.joint_idx}_3`] || 0.0,
+                            joint_settings[`${parent_joint.joint_idx}_4`] || 0.0,
+                            joint_settings[`${parent_joint.joint_idx}_5`] || 0.0,
+                        ];
+                        let rpy = [input[0], input[1], input[2]];
+                        let xyz = [input[3], input[4], input[5]];
+
+                        let joint_origin = get_xyz_rpy_SE3_matrix(parent_joint.xyz, parent_joint.rpy);
+                        let joint_motion = get_xyz_rpy_SE3_matrix(xyz, rpy);
+                        link_poses[link_idx] = mul_matrix_matrix(parent_pose, mul_matrix_matrix(joint_origin, joint_motion));
+                    }
+                    else {
+                        let input = joint_settings[`${parent_joint.joint_idx}_0`] || 0.0;
+
+                        let joint_origin = get_xyz_rpy_SE3_matrix(parent_joint.xyz, parent_joint.rpy);
+                        let joint_motion = get_joint_motion(parent_joint, input);
+                        link_poses[link_idx] = mul_matrix_matrix(parent_pose, mul_matrix_matrix(joint_origin, joint_motion));
+                    }
                 }
 
                 robot.set_link_mesh_pose_from_SE3_matrix(engine, link_idx, link_poses[link_idx]);
             }
         }
-        
+
+        if (settings.play) {
+            settings.t += engine.get_delta_time_from_last_frame() * settings.playback_speed;
+        }
+
+        joint_settings[`${joints[0].joint_idx}_4`] = Math.sin(settings.t);
+        joint_settings[`${joints[0].joint_idx}_5`] = -0.5 * Math.cos(settings.t);
     });
 
 </script>

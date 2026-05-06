@@ -684,9 +684,9 @@ export class Birdbot extends RobotBaseClass {
     }
 
     get_robot_joints() {
-        let joint1 = new RobotJointFixed('base_static_joint', 0, 0, 1, [0,0,0], [0, Math.PI, 0]);
+        let joint0 = new RobotJointFloating('floating_base', 0, 0, 1, [0,1,2], [3,4,5], [0,0,0], [0, Math.PI,0]);
 
-        return [joint1];
+        return [joint0];
     }
 
     get_robot_links() {
